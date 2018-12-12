@@ -13,9 +13,6 @@ responses_folder = os.path.join(data_folder, "responses_with_ip")
 ids_folder = os.path.join(data_folder, "ids")
 all_ids_csv = os.path.join(ids_folder, "all_ids.csv")
 
-# folder containing features for input into debiasing model
-features_folder = os.path.join(data_folder, "feature_dfs")
-
 # folder containing survey webrequests
 srvy_req_folder = os.path.join(data_folder, "survey_traces")
 
@@ -30,6 +27,12 @@ smpl_anon_folder = os.path.join(data_folder, "samples_anon")
 
 # folder containing data about redirects on Wikipedia
 redirect_folder = os.path.join(data_folder, "redirect_tables")
+
+# folder containing article-specific features
+article_folder = os.path.join(data_folder, "article_features")
+
+# folder containing features for input into debiasing model
+features_folder = os.path.join(data_folder, "feature_dfs")
 
 # Hive DB w/ subsampled requests
 hive_db = 'motivations'
