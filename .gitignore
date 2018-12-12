@@ -1,0 +1,8 @@
+# Jupyter checkpoints
+*.ipynb_checkpoints
+
+# PyCharm config
+*.idea
+
+# Byproducts
+*__pycache__
