@@ -2,15 +2,15 @@ import argparse
 import datetime
 import os
 import pickle
-# hacky way to make sure utils is visible
-import sys
+import pytz
 import time
 from collections import Counter
 
 import numpy as np
 import pandas as pd
-import pytz
 
+# hacky way to make sure utils is visible
+import sys
 sys.path.append(os.path.abspath(os.path.abspath(os.path.dirname(__file__)) + '/../../..'))
 
 from src.utils import config
