@@ -9,3 +9,6 @@ The main goal of this code is to provide a means for debiasing survey results (t
     * 02_extractlogtraces: extract and preprocess log data for debiasing
     * 03_debiassurveys: build model to compute new weights for each survey response based upon the estimated likelihood that they would respond to the survey
 * src/utils: various utility scripts and configuration for the code
+
+#### Attribution
+The code contained in this repository is largely the work of, in no order, Florian Lemmerich, Philipp Singer, and Ellery Wulczyn.

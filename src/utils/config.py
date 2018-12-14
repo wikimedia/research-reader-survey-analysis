@@ -34,6 +34,9 @@ article_folder = os.path.join(data_folder, "article_features")
 # folder containing features for input into debiasing model
 features_folder = os.path.join(data_folder, "feature_dfs")
 
+# folder containing final survey responses with weights
+weighted_response_dir = os.path.join(data_folder, "weighted_responses")
+
 # Hive DB w/ subsampled requests
 hive_db = 'motivations'
 hive_el_requests_table = '{0}.el_requests'.format(hive_db)
