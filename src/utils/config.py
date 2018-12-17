@@ -2,7 +2,8 @@ import os
 from dateutil import parser
 
 # top-level folder for all data
-data_folder = "/home/flemmerich/wikimotifs2/data/"
+data_folder = "/home/flemmerich/wikimotifs2/data"
+
 quicksurvey_requests_tsv = os.path.join(data_folder, "survey-requests.tsv")
 quicksurvey_el_tsv = os.path.join(data_folder, "el_responses.tsv")
 
@@ -36,6 +37,19 @@ features_folder = os.path.join(data_folder, "feature_dfs")
 
 # folder containing final survey responses with weights
 weighted_response_dir = os.path.join(data_folder, "weighted_responses")
+
+# folder containing subgroup Python module
+module_path = '/home/flemmerich/pysubgroup'
+
+# list of features to include
+featurelist_numerical = os.path.join(data_folder, 'featurelist_numerical.p')
+featurelist_categorical = os.path.join(data_folder, 'featurelist_categorical.p')
+
+# top-level folder for all results
+results_folder = "/home/flemmerich/wikimotifs2/results"
+
+# subgroup results folder
+sg_folder = os.path.join(results_folder, "sg")
 
 # Hive DB w/ subsampled requests
 hive_db = 'motivations'
