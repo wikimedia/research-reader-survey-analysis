@@ -2,7 +2,7 @@ import hashlib
 import os
 
 
-def exec_hive_stat2(query, filename = None, priority = False, verbose = True, nice=False):
+def exec_hive_stat2(query, filename=None, priority=False, verbose=True, nice=False):
     """Query Hive."""
     if priority:
         query = "SET mapreduce.job.queuename=priority;" + query
@@ -18,7 +18,7 @@ def exec_hive_stat2(query, filename = None, priority = False, verbose = True, ni
     return ret
 
 
-def exec_mariadb_stat2(query, db, filename = None, verbose = True):
+def exec_mariadb_stat2(query, db, filename=None, verbose=True):
     """Query MariaDB."""
     cmd = 'mysql --host analytics-slave.eqiad.wmnet {0} -e "{1}"'.format(db, query)
     if filename:
@@ -32,3 +32,15 @@ def exec_mariadb_stat2(query, db, filename = None, verbose = True):
 def user_hash(client_ip_str, user_agent_str, key):
     conc = client_ip_str + user_agent_str + key
     return hashlib.sha512(conc.encode('utf-8')).hexdigest()
+
+
+def download_dump_file(file_url, output_file_path, verbose=True):
+    output_dir = os.path.dirname(output_file_path)
+    if not os.path.isdir(output_dir):
+        print("{0} directory does not exist. Create and retry.".format(output_dir))
+        return -1
+    cmd = 'wget "{0}" -O "{1}"'.format(file_url, output_file_path)
+    if verbose:
+        print(cmd)
+    ret = os.system(cmd)
+    return ret

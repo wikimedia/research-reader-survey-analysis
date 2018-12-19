@@ -32,8 +32,24 @@ redirect_folder = os.path.join(data_folder, "redirect_tables")
 # folder containing article-specific features
 article_folder = os.path.join(data_folder, "article_features")
 
+# folder containing page graph data
+article_graph_folder = os.path.join(data_folder, "graph")
+
 # folder containing features for input into debiasing model
 features_folder = os.path.join(data_folder, "feature_dfs")
+
+# folder containing article titles
+titles_folder = os.path.join(data_folder, "titles")
+
+# folder containing page details (page.sql.gz dump files)
+page_sql_folder = os.path.join(data_folder, 'pages.sql')
+page_data_folder = os.path.join(data_folder, 'text')
+page_txt_folder = os.path.join(page_data_folder, 'raw')
+sql_date = "20181201"
+num_lda_topics = 20
+
+# pageviews folder
+pageviews_folder = os.path.join(data_folder, "pageviews")
 
 # folder containing final survey responses with weights
 weighted_response_dir = os.path.join(data_folder, "weighted_responses")
