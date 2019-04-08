@@ -2,14 +2,16 @@ import argparse
 import datetime
 import os
 import pickle
+# hacky way to make sure utils is visible
+import sys
 
 import pandas as pd
 
-# hacky way to make sure utils is visible
-import sys
 sys.path.append(os.path.abspath(os.path.abspath(os.path.dirname(__file__)) + '/../../..'))
 
 from src.utils import config
+from src.utils import read_redirects
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -31,22 +33,28 @@ def main():
                         help="Folder for output joined responses/traces.")
     args = parser.parse_args()
 
-    columns_to_keep = ["geocoded_data",
-                       "requests",
-                       "submit_timestamp",
-                       "raw_information_depth",
-                       "raw_prior_knowledge",
-                       "raw_motivation",
-                       "information depth",
-                       "prior knowledge",
-                       "motivation",
-                       "timestamp",
-                       "webHost",
-                       "wiki",
-                       "dt",
-                       "survey_request",
-                       "survey_dt_utc"]
+    if not os.path.isdir(args.out_dir):
+        print("Creating directory: {0}".format(os.path.abspath(args.out_dir)))
+        os.mkdir(args.out_dir)
 
+
+    geo_cols = ["continent", "country", "country_code", "timezone"]
+    columns_to_keep = geo_cols + [
+        "requests",
+        "submit_timestamp",
+        ">=18",
+        "raw_information_depth", "raw_prior_knowledge", "raw_motivation",
+        "information depth", "prior knowledge", "motivation",
+        "age", "gender", "education", "locale", "native_lang_1", "native_lang_2",
+        "dt_qsinitialization",
+        "response_type",
+        "wiki",
+        "page_title",
+        "page_id",
+        "survey_request",
+        "survey_dt_utc",
+        "logged_in",
+        "edit_count", "editor_interface", "is_anon"]
 
     for lang in args.languages:
         print("**************")
@@ -55,72 +63,65 @@ def main():
         with open(os.path.join(args.in_dir_traces, "sample_{0}.csv".format(lang)), "r") as f:
             l_count = 0
             lines = []
+            assert next(f).strip().split('\t') == ['userhash', 'geocoded_data', 'requests']
             for line in f:
-                if l_count > 0:
-                    l = parse_row(line)
-                    if l is not None:
-                        lines.append(l)
+                l = parse_row(line)
+                if l is not None:
+                    lines.append(l)
                 if l_count % 10000 == 9999:
                     print("processing line...", l_count + 1)
                 l_count = l_count + 1
-            print("line count: ", l_count)
+            print("traces processed: ", l_count)
 
         df_traces = pd.DataFrame(lines)
-        print("len of df", len(lines))
-        print("len of df", len(df_traces))
-
-        df_responses = pd.read_csv(os.path.join(args.in_dir_responses, "responses_with_ip_{0}.csv".format(lang)), sep="\t")
-        print("responses with duplicates: ", len(df_responses))
-        df_responses.drop_duplicates(subset=["id"], inplace=True)
-        print("responses without duplicates: ", len(df_responses))
-
-        print("traces with duplicates", len(df_traces))
-        df_traces.drop_duplicates(subset=["id", "geo_data"], inplace=True)
+        print("traces kept", len(df_traces))
+        df_traces.drop_duplicates(subset=["userhash"], inplace=True)
         print("traces without duplicates", len(df_traces))
 
-        df_merged = pd.merge(df_traces, df_responses, left_on=["id"],
-                             right_on=["id"], how="inner")
+        df_responses = pd.read_csv(os.path.join(args.in_dir_responses, "responses_with_el_{0}.csv".format(lang)),
+                                   sep="\t")
+        print("responses with duplicates: ", len(df_responses))
+        df_responses.drop_duplicates(subset=["userhash"], inplace=True)
+        print("responses without duplicates (or missing userhash): ", len(df_responses))
+
+
+        df_merged = pd.merge(df_traces, df_responses, left_on=["userhash"],
+                             right_on=["userhash"], how="inner")
         print("in merged dataframe: ", len(df_merged))
 
-        df_merged['requests'] = df_merged['requests'].apply(parse_requests_ts_and_redirects, d=read_redirects(lang, args.redirect_dir))
-        df_merged['survey_request'] = df_merged.apply(extract_survey_request, axis=1)
-        df_merged.dropna(subset=["survey_request"], inplace=True)
-        df_merged['survey_dt_utc'] = df_merged['survey_request'].apply(lambda x: x['ts'])
+        df_merged['requests'] = df_merged['requests'].apply(parse_requests_ts_and_redirects,
+                                                            d=read_redirects(lang, args.redirect_dir))
+        df_merged['survey_request'] = df_merged.apply(extract_survey_request, lang=lang, axis=1)
+        df_merged['wiki'] = df_merged.apply(lambda x: x['survey_request'].get('uri_host', lang), axis=1)
+        df_merged['survey_dt_utc'] = df_merged['survey_request'].apply(lambda x: x.get('ts', None))
+        df_merged.dropna(subset=["survey_dt_utc"], inplace=True)
         print("After removing non-existing survey requests: ", len(df_merged))
         df_merged = df_merged.reset_index(drop=True)
+        unmatched_countries = df_merged[
+            df_merged['geocoded_data'].apply(lambda x: x['country']) != df_merged['country']]
+        if len(unmatched_countries) > 0:
+            print("Unmatched countries:", unmatched_countries)
 
         print("Anonymizing survey...")
+        for geo_col in geo_cols:
+            df_merged[geo_col] = df_merged['geocoded_data'].apply(lambda x: x.get(geo_col, None))
         df_merged = df_merged[columns_to_keep]
-        df_merged['geocoded_data'] = df_merged['geocoded_data'].apply(
-            lambda x: {k: x[k] for k in ["continent", "country", "country_code", "timezone"]})
-        pickle.dump(df_merged, open(os.path.join(args.out_dir, "joined_responses_and_traces_anon_{0}.p".format(lang)), "wb"))
-        df_merged.to_csv(os.path.join(args.out_dir, "joined_responses_and_traces_anon_{0}.csv".format(lang)), index=False)
+        pickle.dump(df_merged,
+                    open(os.path.join(args.out_dir, "joined_responses_and_traces_anon_{0}.p".format(lang)), "wb"))
+        df_merged.to_csv(os.path.join(args.out_dir, "joined_responses_and_traces_anon_{0}.csv".format(lang)),
+                         index=False)
         print("finished")
 
-
-def read_redirects(lang, redirect_dir):
-    redirect_dict = {}
-    with open(os.path.join(redirect_dir, "{0}_redirect.tsv".format(lang)), "r") as f:
-        for line in f:
-            tokens = line.split("\t")
-            source = tokens[0].strip()
-            if source.startswith('"') and source.endswith('"'):
-                source = source[1:-1]
-            target = tokens[1].strip()
-            if target.startswith('"') and target.endswith('"'):
-                target = target[1:-1]
-            redirect_dict[source] = target
-    return redirect_dict
 
 def parse_row(line):
     row = line.strip().split('\t')
     if len(row) != 3:
         return None
-    
-    d = {'id': row[0],
-         'geocoded_data' : eval(row[1]),
-         'requests' : parse_requests(row[2])
-        }
+
+    d = {'userhash': row[0],
+         'geocoded_data': eval(row[1]),
+         'requests': parse_requests(row[2])
+         }
     if d['requests'] is None:
         return None
     return d
@@ -128,41 +129,52 @@ def parse_row(line):
 
 def parse_requests(requests):
     ret = []
-    for r in requests.split('REQUEST_DELIM'):
+    for r in requests.split(config.request_delim):
         t = r.split('|')
-        if (len(t) % 2) != 0: # should be list of (name, value) pairs and contain at least id,ts,title
+        if (len(t) % 2) != 0:  # should be list of (name, value) pairs and contain at least userhash,ts,title
             continue
-        data_dict = {t[i]:t[i+1] for i in range(0, len(t), 2)}
+        data_dict = {t[i]: t[i + 1] for i in range(0, len(t), 2)}
         ret.append(data_dict)
     try:
-        ret.sort(key = lambda x: x['ts']) # sort by time
+        ret.sort(key=lambda x: x['ts'])  # sort by time
     except:
         return None
-    
+
     return ret
 
 
-def extract_survey_request (l):
-    pageTitle = str(l.event_pageTitle)
-    dt = datetime.datetime.strptime(str(l.timestamp), '%Y%m%d%H%M%S')
-    if l.requests is None:
-        return None
-    for req in reversed(l.requests):
-        if (req["title"] == pageTitle) or (req["uri_path"] == ("/wiki/" + pageTitle)):
-            ts = req["ts"]
-            if ts < dt:
-                return req
-    return None
+def extract_survey_request(l, lang):
+    quicksurvey_dt = datetime.datetime.strptime(str(l.dt_qsinitialization), '%Y-%m-%dT%H:%M:%S')
+    timestamp_only = False
+    if pd.isnull(l.page_id) and pd.isnull(l.page_title):
+        timestamp_only = True
+    else:
+        page_title = str(l.page_title)
+        page_id = int(l.page_id)
+    if l.requests is not None:
+        for req in reversed(l.requests):
+            # same lang as survey was deployed
+            if req['lang'] == lang:
+                # same page title (no redirects) or same page id / lang (reflects redirects)
+                pageview_ts = req["ts"]
+                if timestamp_only or ((req["title"] == page_title) or (req["uri_path"] == ("/wiki/" + page_title)) or (
+                        int(req['page_id']) == page_id)):
+                    if pageview_ts <= quicksurvey_dt:
+                        return req
+#    print("Not matched: {0}; {1} requests.".format(l.page_title, len(l.requests)))
+    return {}
+
 
 def parse_requests_ts_and_redirects(requests, d={}):
     if len(requests) == 0:
         return None
     for i, r in enumerate(requests):
-        r['id'] = i
+        r['userhash'] = i
         r['ts'] = datetime.datetime.strptime(r['ts'], '%Y-%m-%d %H:%M:%S')
         if r['title'] in d:
             r['title'] = d[r['title']]
     return requests
+
 
 if __name__ == "__main__":
     main()

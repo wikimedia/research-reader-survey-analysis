@@ -26,15 +26,18 @@ def main():
 
 
     exec_hive_stat2("DROP TABLE IF EXISTS {0};".format(args.ids_table_name))
-    exec_hive_stat2("CREATE TABLE {0} (id string) "
+    exec_hive_stat2("CREATE TABLE {0} (userhash string) "
                     "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES "
                     "('separatorChar' = ',', 'quoteChar' = '\\\"');".format(args.ids_table_name))
     exec_hive_stat2("LOAD DATA LOCAL INPATH '{0}' OVERWRITE INTO TABLE {1};".format(args.all_ids_csv, args.ids_table_name))
 
     query = ("CREATE TABLE {0} STORED AS PARQUET AS "
              "SELECT * FROM {1} "
-             "WHERE {1}.id in (SELECT {2}.id from {2});".format(
-        args.srvy_req_table, args.all_req_table, args.ids_table_name))
+             "WHERE {2}.userhash in (SELECT {3}.userhash from {4});".format(args.srvy_req_table,
+                                                                            args.all_req_table,
+                                                                            args.all_req_table.split(".")[1],
+                                                                            args.ids_table_name.split(".")[1],
+                                                                            args.ids_table_name))
     exec_hive_stat2(query)
 
 

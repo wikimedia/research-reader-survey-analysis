@@ -13,32 +13,31 @@ def main():
     parser.add_argument("--hash_key",
                         default=config.hash_key,
                         help="Hash key for salting user-agent + client-IP")
+    parser.add_argument("--all_req_table",
+                        default=config.hive_all_requests_table,
+                        help="Hive table w/ all webrequests.")
     args = parser.parse_args()
 
-    query = ("CREATE TABLE motivations.all_requests_parquet STORED AS PARQUET AS "
-             "SELECT reflect('org.apache.commons.codec.digest.DigestUtils', 'sha512Hex', concat(client_ip, user_agent, '{0}')) as id,"
+    query = ("CREATE TABLE {0} STORED AS PARQUET AS "
+             "SELECT reflect('org.apache.commons.codec.digest.DigestUtils', 'sha512Hex', concat(client_ip, user_agent, '{1}')) as userhash,"
              "geocoded_data, "
-             "http_status, "
-             "accept_language, "
-             "x_forwarded_for, "
              "ts, "
              "referer, "
              "uri_path, "
              "uri_host, "
              "uri_query, "
-             "is_pageview, "
              "access_method, "
              "referer_class, "
              "normalized_host, "
              "pageview_info, "
              "page_id, "
-             "namespace_id, "
              "day, "
-             "hour"
+             "hour "
              "FROM wmf.webrequest "
-             "WHERE {1} "
+             "WHERE {2} "
              "AND webrequest_source = 'text' AND access_method != 'mobile app' AND agent_type = 'user' "
-             "AND namespace_id = 0 and is_pageview = TRUE;".format(args.hash_key, config.hive_days_clause))
+             "AND normalized_host.project_class = 'wikipedia' "
+             "AND namespace_id = 0 and is_pageview = TRUE;".format(args.all_req_table, args.hash_key, config.hive_days_clause))
 
     exec_hive_stat2(query)
 

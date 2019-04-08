@@ -21,21 +21,26 @@ def main():
 
     # All Hive webrequests including QuickSurvey beacon (survey may have run) on the days while survey was live
     get_qs_query = ("CREATE TABLE {0} AS "
-                    'SELECT *, get_json_object(json_event, "$.event.surveySessionToken") AS survey_session_token '
-                    "FROM ( "
-                        'SELECT *, reflect("java.net.URLDecoder", "decode", substr(uri_query, 2)) AS json_event '
-                        "FROM wmf.webrequest "
-                        'WHERE uri_path LIKE "%beacon/event" AND uri_query LIKE "%QuickSurvey%" AND '
-                        "{1}"
-                    ") q1;".format(args.quicksurvey_requests_table, config.hive_days_clause))
+                    "SELECT *, reflect('java.net.URLDecoder', 'decode', substr(uri_query, 2)) AS json_event "
+                    "FROM wmf.webrequest "
+                    "WHERE uri_path LIKE '%beacon/event' AND uri_query LIKE '%QuickSurvey%' AND uri_query LIKE '%{1}%' "
+                    "AND {2}".format(args.quicksurvey_requests_table, config.survey_name_start, config.hive_days_clause))
     exec_hive_stat2(get_qs_query)
 
-
-    anonymized_to_csv_query = ("SELECT dt, "
-                               "reflect('org.apache.commons.codec.digest.DigestUtils', 'sha512Hex', concat(client_ip, user_agent, '{0}')) as id, "
-                               "survey_session_token "
-                               'WHERE client_ip <> "-" AND user_agent <> "-" '
-                               "FROM {1};".format(hash_key, args.quicksurvey_requests_table))
+    # NOTE: empirically, the client_ip and user_agent checks have filtered out zero webrequests
+    anonymized_to_csv_query = ("SELECT dt as dt_QSinitialization, "
+                               "reflect('org.apache.commons.codec.digest.DigestUtils', 'sha512Hex', concat(client_ip, user_agent, '{0}')) as userhash, "
+                               "get_json_object(json_event, '$.event.surveySessionToken') AS survey_session_token, "
+                               "get_json_object(json_event, '$.event.pageviewToken') as pageview_token, "
+                               "get_json_object(json_event, '$.event.surveyResponseValue') as response_type, "
+                               "get_json_object(json_event, '$.event.pageTitle') as page_title, "
+                               "get_json_object(json_event, '$.event.pageId') as page_id, "
+                               "get_json_object(json_event, '$.event.isLoggedIn') as logged_in, "
+                               "geocoded_data['country'] as country, "
+                               "geocoded_data['timezone'] as timezone "
+                               "FROM {1} "
+                               "WHERE client_ip <> '-' AND "
+                               "user_agent <> '-'".format(hash_key, args.quicksurvey_requests_table))
 
     exec_hive_stat2(anonymized_to_csv_query, args.output_csv)
 

@@ -44,3 +44,21 @@ def download_dump_file(file_url, output_file_path, verbose=True):
         print(cmd)
     ret = os.system(cmd)
     return ret
+
+def read_redirects(lang, redirect_dir):
+    redirect_dict = {}
+    redirect_fn = os.path.join(redirect_dir, "{0}_redirect.tsv".format(lang))
+    if os.path.exists(redirect_fn):
+        with open(redirect_fn, "r") as f:
+            for line in f:
+                tokens = line.split("\t")
+                source = tokens[0].strip()
+                if source.startswith('"') and source.endswith('"'):
+                    source = source[1:-1]
+                target = tokens[1].strip()
+                if target.startswith('"') and target.endswith('"'):
+                    target = target[1:-1]
+                redirect_dict[source] = target
+    else:
+        print("{0} does not exist. No redirects taken into consideration.".format(redirect_fn))
+    return redirect_dict

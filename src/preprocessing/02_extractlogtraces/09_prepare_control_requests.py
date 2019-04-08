@@ -10,6 +10,8 @@ import sys
 sys.path.append(os.path.abspath(os.path.abspath(os.path.dirname(__file__)) + '/../../..'))
 
 from src.utils import config
+from src.utils import read_redirects
+from src.utils import main_page_titles
 
 def main():
     parser = argparse.ArgumentParser()
@@ -28,6 +30,10 @@ def main():
                         help="Folder for output joined responses/traces.")
     args = parser.parse_args()
 
+    if not os.path.isdir(args.out_dir):
+        print("Creating directory: {0}".format(os.path.abspath(args.out_dir)))
+        os.mkdir(args.out_dir)
+
     for lang in args.languages:
         print("**************")
         print("* Processing " + lang)
@@ -45,7 +51,7 @@ def main():
                 for i, row in enumerate(f):
                     if i > 0:
                         try:
-                            row = parse_row(row, redirects)
+                            row = parse_row(row, redirects, lang)
                             if row is not None:
                                 instances.append(row)
                                 out.write(str(row) + "\n")
@@ -59,7 +65,7 @@ def main():
                             print("processing line...", i)
                 print("line count: ", i)
 
-        df = pd.DataFrame(instances, columns=["id", "geocoded_data", "survey_request", "requests"])
+        df = pd.DataFrame(instances, columns=["userhash", "geocoded_data", "survey_request", "requests"])
         print("size df: ", len(df))
         df['survey_dt_utc'] = df['survey_request'].apply(lambda x: x['ts'])
         df['survey_title'] = df['survey_request'].apply(lambda x: x['title'])
@@ -73,32 +79,21 @@ def main():
         print("# nones: ", none_count)
 
         print("Anonymizing survey...")
-        df['geocoded_data'] = df['geocoded_data'].apply(
-            lambda x: {k: x[k] for k in ["continent", "country", "country_code", "timezone"]})
+
+        geo_cols = ["continent", "country", "country_code", "timezone"]
+        for geo_col in geo_cols:
+            df[geo_col] = df['geocoded_data'].apply(lambda x: x.get(geo_col, None))
         df.to_pickle(os.path.join(args.out_dir, "sample_df_{0}.p".format(lang)))
         print("finished")
 
 
-def read_redirects(lang, redirect_dir):
-    redirect_dict = {}
-    with open(os.path.join(redirect_dir, "{0}_redirect.tsv".format(lang)), "r") as f:
-        for line in f:
-            tokens = line.split("\t")
-            source = tokens[0].strip()
-            if source.startswith('"') and source.endswith('"'):
-                source = source[1:-1]
-            target = tokens[1].strip()
-            if target.startswith('"') and target.endswith('"'):
-                target = target[1:-1]
-            redirect_dict[source] = target
-    return redirect_dict
 
-def parse_row(line, redirects):
+def parse_row(line, redirects, lang):
     row = line.strip().split('\t')
     if len(row) != 3:
         return None
     
-    d = {'id': row[0],
+    d = {'userhash': row[0],
          'geocoded_data' : eval(row[1]),
          'requests' : parse_requests(row[2])
         }
@@ -109,15 +104,16 @@ def parse_row(line, redirects):
     title_check = ["hyphen-minus"]
     out = []
     for i, r in enumerate(d["requests"]):
-        r["id"] = i
-        if "title" in r:
+        r["userhash"] = i
+        if "title" in r and r['lang'] == lang:
             if r['title'] in redirects:
                 r['title'] = redirects[r['title']]
+            if r['title'] == main_page_titles.get(lang, None):
+                continue
             if not any(x in r["title"].lower() for x in title_check):
                 r['ts'] = datetime.datetime.strptime(r['ts'], '%Y-%m-%d %H:%M:%S')
                 out.append(r)
     if len(out) > 0:
-        # TODO: remove Main Page as possibility here
         d["survey_request"] = random.choice(out)
         return d
     else:
@@ -127,9 +123,9 @@ def parse_row(line, redirects):
 
 def parse_requests(requests):
     ret = []
-    for r in requests.split('REQUEST_DELIM'):
+    for r in requests.split(config.request_delim):
         t = r.split('|')
-        if (len(t) % 2) != 0: # should be list of (name, value) pairs and contain at least id,ts,title
+        if (len(t) % 2) != 0: # should be list of (name, value) pairs and contain at least userhash,ts,title
             continue
         data_dict = {t[i]:t[i+1] for i in range(0, len(t), 2)}
         ret.append(data_dict)
