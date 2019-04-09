@@ -2,10 +2,8 @@ import argparse
 import bz2
 from collections import namedtuple
 import csv
-import gzip
 import os
 import pickle
-import re
 import sys
 
 import gensim
@@ -148,7 +146,7 @@ def get_lda_features(page_features_dir, lang, date):
     fn = os.path.join(page_features_dir, "{0}_lda_features.tsv".format(lang))
     if not os.path.exists(fn):
         print("Building LDA features for:", lang)
-        ArticleLDA(fn, lang, date).build_topic_model()
+        ArticleLDA(page_features_dir, lang, date).build_topic_model()
     colnames = ['lda_pid'] + ['topic{0}'.format(i) for i in range(config.num_lda_topics)]
     datatypes = {'lda_pid':np.int32}
     datatypes.update({'topic{0}'.format(i):np.float32 for i in range(config.num_lda_topics)})
@@ -160,14 +158,17 @@ def get_lda_features(page_features_dir, lang, date):
 
 class ArticleLDA:
 
-    def __init__(self, output_features_tsv, lang, date):
-        self.output_features_tsv = output_features_tsv
+    def __init__(self, output_features_dir, lang, date, id2title=None):
+        self.output_features_tsv = os.path.join(output_features_dir, "{0}_lda_features.tsv".format(lang))
+        self.output_lda = os.path.join(output_features_dir, '{0}.lda'.format(lang))
+        self.output_overview = os.path.join(output_features_dir, '{0}_overview.tsv'.format(lda))
         self.lang = lang
         self.date = date
         self.article_dump = build_local_currentpage_dump_fn(self.lang, self.date)
         self.page_ids = []
         self.page_count = 0
         self.skipped = 0
+        self.id2title = id2title
 
 
     def id2text_iterator(self):
@@ -190,14 +191,48 @@ class ArticleLDA:
         tfidf_model = TfidfVectorizer(max_df=config.lda_max_df,
                                       min_df=config.lda_min_df,
                                       max_features=config.lda_max_features)
-        csr_articles = tfidf_model.fit_transform(self.id2text_iterator())
-        lda = gensim.models.ldamodel.LdaModel(corpus=gensim.matutils.Sparse2Corpus(csr_articles, documents_columns=False),
-                                              id2word={wid:word for word,wid in tfidf_model.vocabulary_.items()},
+        corpus = tfidf_model.fit_transform(self.id2text_iterator())
+        corpus = gensim.matutils.Sparse2Corpus(corpus, documents_columns=False)
+        id2word = {wid:word for word,wid in tfidf_model.vocabulary_.items()}
+        lda = gensim.models.ldamodel.LdaModel(corpus=corpus,
+                                              id2word=id2word,
                                               num_topics=config.num_lda_topics,
                                               update_every=1,
                                               passes=1)
 
-        lda.save(self.output_features_tsv)
+        # save LDA model features
+        lda.save(self.output_lda)
+
+        # save topic distribution for each article
+        page_reprs = []
+        for i, page_repr in enumerate(lda[corpus]):
+            page_repr_alldim = [0.0] * config.num_lda_topics
+            for topic_idx, topic_prop in page_repr:
+                page_repr_alldim[topic_idx] = topic_prop
+            page_reprs.append([self.page_ids[i]] + page_repr_alldim)
+
+        page_reprs = pd.DataFrame(page_reprs,
+                                  columns=['page_id'] + ['t{0}'.format(i) for i in range(config.num_lda_topics)])
+        page_reprs.set_index('page_id', inplace=True)
+        page_reprs.to_csv(self.output_features_tsv, sep="\t")
+
+        # save LDA overview
+        topic_overview = pd.DataFrame(columns=['topic', 'top words', 'top articles', 'prevalence_top1', 'prevalence_top3'])
+        prev_top = page_reprs.apply(lambda x: np.argsort(x)[::-1][:3], axis=1)
+        prev_top1 = prev_top.iloc[:,0].value_counts()
+        prev_top3 = prev_top1.add(prev_top.iloc[:,1].value_counts(), fill_value=0).add(prev_top.iloc[:,2].value_counts(), fill_value=0)
+        for topic_idx in range(config.num_lda_topics):
+            top_words = [w for w,prop in lda.show_topic(topic_idx, 20)]
+            top_articles = list(page_reprs['t{0}'.format(topic_idx)].sort_values()[-20:].index.values)
+            if self.id2title:
+                top_articles = [self.id2title.get(pid) for pid in top_articles]
+            topic_overview.append({'topic':topic_idx,
+                                   'top words':top_words,
+                                   'top articles':top_articles,
+                                   'prevalence_top1':prev_top1.get(topic_idx, 0),
+                                   'prevalence_top3':prev_top3.get(topic_idx, 0)},
+                                  ignore_index=True)
+        topic_overview.to_csv(self.output_overview, sep='\t')
 
 def id_check(lang, args, id2props=None, pageids=None):
     if not pageids:
@@ -271,7 +306,7 @@ def build_local_currentpage_dump_fn(lang, date):
 
 def download_dumps(lang, date, output_dir, dumptype="sql"):
     """WGET a dump file to local machine"""
-    base_url = "https://dumps.wikimedia.org/{0}wiki/{1}"
+    base_url = "https://dumps.wikimedia.org/{0}wiki/{1}".format(lang, date)
     if dumptype == "sql":
         dump_url = build_sql_dump_fn(lang ,date, base_url)
         output_fn = build_sql_dump_fn(lang, date, output_dir)
@@ -281,29 +316,6 @@ def download_dumps(lang, date, output_dir, dumptype="sql"):
     else:
         raise ValueError("Dumptype must be sql or article_text: {0}".format(dumptype))
     download_dump_file(dump_url, output_fn)
-
-def get_title2id(lang, date, output_dir):
-    """Build lookup for title -> page ID."""
-    file_path = build_sql_dump_fn(lang, date, output_dir)
-    if not os.path.exists(file_path):
-        download_dumps(lang, date, output_dir, dumptype="sql")
-    title2id = {}
-    with gzip.open(file_path, "r") as f:
-        for line in f:
-            line = line.decode("utf-8")
-            if line.startswith("INSERT INTO"):
-                pages = line.split("),(")
-                pages[0] = pages[0].replace("INSERT INTO `page` VALUES (", "")
-                pages[-1] = pages[-1].replace(";\n", "")
-                for p in pages:
-                    tokens = re.findall(r"(?:[^\s,']|'(?:\\.|[^'])*')+", p)
-                    page_id = int(tokens[0])
-                    page_namespace = tokens[1]
-                    page_title = tokens[2].lower()[1:-1]
-                    is_redirect = bool(int(tokens[5]))
-                    if page_namespace == "0" and not is_redirect:
-                        title2id[page_title] = page_id
-    return title2id
 
 
 def get_id2properties(lang, date, output_dir):
@@ -317,15 +329,6 @@ def get_id2properties(lang, date, output_dir):
                 curr_rev = next(page)
                 id2props[page.id] = Page(page.title, len(curr_rev.text))
     return id2props
-
-
-def add_gensim_title(df, lang, date, output_dir):
-    article_text_file = build_article_text_dump_fn(lang, date, output_dir)
-    if not os.path.exists(article_text_file):
-        download_dumps(lang, date, output_dir, dumptype="article_text")
-    langmap = extract_mapping(article_text_file)
-    df["gensim_title"] = df["id"].apply(lambda x: langmap[str(x)] if str(x) in langmap else "-")
-
 
 if __name__ == "__main__":
     main()
