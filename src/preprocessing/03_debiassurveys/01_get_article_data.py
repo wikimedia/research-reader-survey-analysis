@@ -109,7 +109,8 @@ def main():
                                names=["id", "pagerank", "indegree", "outdegree"])
         df_graph.set_index('id', inplace=True)
         df_all = pd.merge(left=df_with_topics, right=df_graph, how="left", left_index=True, right_index=True)
-        pickle.dump(df_all, open(os.path.join(args.article_dir, "article_features_{0}.p".format(lang), "wb")))
+        with open(os.path.join(args.article_dir, "article_features_{0}.p".format(lang)), 'wb') as fout:
+            pickle.dump(df_all, fout)
 
         for c in df_all.columns:
             print(df_all[c].describe())
@@ -125,7 +126,8 @@ def get_pageids(lang, args):
         df_sample = pd.read_pickle(os.path.join(args.sample_dir, "sample_df_{0}.p".format(lang)))
         pageids_sample = get_all_pages(df_sample, lang)
         pids_to_titles = pageids_sample.update(pageids_survey)
-        pickle.dump(pids_to_titles, pageids_fn)
+        with open(pageids_fn, 'wb') as fout:
+            pickle.dump(pids_to_titles, fout)
     else:
         pids_to_titles = pickle.load(pageids_fn)
 
