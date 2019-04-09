@@ -48,6 +48,7 @@ def create_hive_trace_table(db_name, table_name, lang, priority, nice):
     CREATE TABLE IF NOT EXISTS {0}.{1}_{2}_by_day (
         userhash STRING,
         geocoded_data MAP<STRING,STRING>,
+        logged_in INT,
         requests STRING,
         r_count INT
     )
