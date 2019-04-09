@@ -297,13 +297,31 @@ def download_dumps(lang, date, output_dir, dumptype="sql"):
 def get_id2properties(lang, date, output_dir):
     """Build lookup for length of page (bytes)."""
     Page = namedtuple('Page', ['title', 'length'])
-    file_path = build_local_currentpage_dump_fn(lang, date)
+    output_fn = os.path.join(output_dir, '{0}_page_props.tsv'.format(lang))
     id2props = {}
-    with Iterator.from_file(bz2.BZ2File(file_path, 'r')) as f:
-        for page in f:
-            if not page.redirect and page.namespace == 0:
-                curr_rev = next(page)
-                id2props[page.id] = Page(page.title, len(curr_rev.text))
+    if os.path.exists(output_fn):
+        with open(output_fn, 'r') as fin:
+            tsvreader = csv.reader(fin, delimiter="\t")
+            for line in tsvreader:
+                pid = int(line[0])
+                title = line[1]
+                plen = int(line[2])
+                id2props[pid] = Page(title, plen)
+    else:
+        file_path = build_local_currentpage_dump_fn(lang, date)
+        print("Gathering page properties from dump.")
+        with Iterator.from_file(bz2.BZ2File(file_path, 'r')) as f:
+            for i, page in enumerate(f, start=1):
+                if not page.redirect and page.namespace == 0:
+                    curr_rev = next(page)
+                    id2props[page.id] = Page(page.title, len(curr_rev.text))
+                if i % 1000000 == 0:
+                    print("{0} pages evaluated. {1} retained.".format(i, len(id2props)))
+        with open(output_fn, 'w') as fout:
+            tsvwriter = csv.writer(fout, delimiter="\t")
+            for pid in id2props:
+                tsvwriter.writerow([pid, id2props[pid].title, id2props[pid].length])
+
     return id2props
 
 if __name__ == "__main__":
