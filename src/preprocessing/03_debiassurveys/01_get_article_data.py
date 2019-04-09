@@ -17,7 +17,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 sys.path.append(os.path.abspath(os.path.abspath(os.path.dirname(__file__)) + '/../../..'))
 from src.utils import config
 from src.utils import download_dump_file
-from src.utils import exec_mariadb_stat2
 from src.utils import exec_hive_stat2
 
 def main():
@@ -166,8 +165,9 @@ class ArticleLDA:
 
     def id2text_iterator(self):
         capture_ids = not self.page_ids
-        with Iterator.from_file(bz2.BZ2File(self.article_dump, 'r')) as f:
-            for page in f:
+        with bz2.BZ2File(self.article_dump, 'r') as fin:
+            d = Iterator.from_file(fin)
+            for page in d:
                 if not page.redirect and page.namespace == 0:
                     wikitext = next(page).text
                     plaintext = mwparserfromhell.parse(wikitext).strip_code()
@@ -310,8 +310,9 @@ def get_id2properties(lang, date, output_dir):
     else:
         file_path = build_local_currentpage_dump_fn(lang, date)
         print("Gathering page properties from dump.")
-        with Iterator.from_file(bz2.BZ2File(file_path, 'r')) as f:
-            for i, page in enumerate(f, start=1):
+        with bz2.BZ2File(file_path, 'r') as fin:
+            d = Iterator.from_file(fin)
+            for i, page in enumerate(d, start=1):
                 if not page.redirect and page.namespace == 0:
                     curr_rev = next(page)
                     id2props[page.id] = Page(page.title, len(curr_rev.text))
