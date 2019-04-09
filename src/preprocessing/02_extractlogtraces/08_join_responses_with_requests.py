@@ -39,6 +39,7 @@ def main():
 
 
     geo_cols = ["continent", "country", "country_code", "timezone"]
+    editattempt_cols = ["edit_count", "editor_interface", "is_anon"]
     columns_to_keep = geo_cols + [
         "requests",
         "submit_timestamp",
@@ -53,8 +54,7 @@ def main():
         "page_id",
         "survey_request",
         "survey_dt_utc",
-        "logged_in",
-        "edit_count", "editor_interface", "is_anon"]
+        "logged_in"]
 
     for lang in args.languages:
         print("**************")
