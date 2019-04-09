@@ -97,30 +97,19 @@ def main():
         print("Non-null rows:", len(df_pdata_pviews) - df_pdata_pviews.count())
         print("Non-null lengths:", len(df_pdata_pviews[df_pdata_pviews["page_length"] == -1]))
 
-        # Add gensim title for LDA merge
-        add_gensim_title(df_pdata_pviews, lang, args.date, args.page_txt_dir)
-        print("Pages without gensim title: ", sum(df_pdata_pviews.gensim_title == "-"))
-        print("Len DF after merging gensim titles:", len(df_pdata_pviews))
-
         # Gather LDA features
         df_lda = get_lda_features(args.page_features_dir, lang, args.sql_date)
 
-        # convert feature columns to numeric values
-        for i in range(config.num_lda_topics):
-            df_lda[f"topic_{i}"] = pd.to_numeric(df_lda[f"topic_{i}"])
-
         # merge the lda features
-        df_with_topics = pd.merge(left=df_pdata_pviews, right=df_lda, how="left", on="gensim_title")
-        # Compute "main topic"
-        df_with_topics["main_topic"] = df_with_topics[columns[1:]].idxmax(axis=1)
-        print("# articles with topics:", df_with_topics.count())
-
+        df_with_topics = pd.merge(left=df_pdata_pviews, right=df_lda, how="left", left_index=True, right_index=True)
+        print("# articles with topics:", df_with_topics['main_topic'].count())
 
         # Join Network features
-        df_graph = pd.read_csv(os.path.join(args.article_graph_dir, f"{lang}_graph_features.csv"), header=None,
+        df_graph = pd.read_csv(os.path.join(args.article_graph_dir, "{0}_graph_features.csv".format(lang)), header=None,
                                names=["id", "pagerank", "indegree", "outdegree"])
-        df_all = pd.merge(left=df_with_topics, right=df_graph, on="id", how="left")
-        pickle.dump(df_all, open(os.path.join(args.article_dir, f"article_features_{lang}.p", "wb")))
+        df_graph.set_index('id', inplace=True)
+        df_all = pd.merge(left=df_with_topics, right=df_graph, how="left", left_index=True, right_index=True)
+        pickle.dump(df_all, open(os.path.join(args.article_dir, "article_features_{0}.p".format(lang), "wb")))
 
         for c in df_all.columns:
             print(df_all[c].describe())
@@ -153,6 +142,7 @@ def get_lda_features(page_features_dir, lang, date):
     df_lda = pd.read_csv(fn, sep='\t',
                          columns=colnames,
                          dtype=datatypes)
+    df_lda.set_index('lda_pid', inplace=True)
 
     return df_lda
 
@@ -161,7 +151,7 @@ class ArticleLDA:
     def __init__(self, output_features_dir, lang, date, id2title=None):
         self.output_features_tsv = os.path.join(output_features_dir, "{0}_lda_features.tsv".format(lang))
         self.output_lda = os.path.join(output_features_dir, '{0}.lda'.format(lang))
-        self.output_overview = os.path.join(output_features_dir, '{0}_overview.tsv'.format(lda))
+        self.output_overview = os.path.join(output_features_dir, '{0}_overview.tsv'.format(lang))
         self.lang = lang
         self.date = date
         self.article_dump = build_local_currentpage_dump_fn(self.lang, self.date)
@@ -209,11 +199,11 @@ class ArticleLDA:
             page_repr_alldim = [0.0] * config.num_lda_topics
             for topic_idx, topic_prop in page_repr:
                 page_repr_alldim[topic_idx] = topic_prop
-            page_reprs.append([self.page_ids[i]] + page_repr_alldim)
+            page_reprs.append([self.page_ids[i], page_repr[0][0]] + page_repr_alldim)
 
         page_reprs = pd.DataFrame(page_reprs,
-                                  columns=['page_id'] + ['t{0}'.format(i) for i in range(config.num_lda_topics)])
-        page_reprs.set_index('page_id', inplace=True)
+                                  columns=['lda_pid', 'main_topic'] + ['topic{0}'.format(i) for i in range(config.num_lda_topics)])
+        page_reprs.set_index('lda_pid', inplace=True)
         page_reprs.to_csv(self.output_features_tsv, sep="\t")
 
         # save LDA overview
@@ -223,7 +213,7 @@ class ArticleLDA:
         prev_top3 = prev_top1.add(prev_top.iloc[:,1].value_counts(), fill_value=0).add(prev_top.iloc[:,2].value_counts(), fill_value=0)
         for topic_idx in range(config.num_lda_topics):
             top_words = [w for w,prop in lda.show_topic(topic_idx, 20)]
-            top_articles = list(page_reprs['t{0}'.format(topic_idx)].sort_values()[-20:].index.values)
+            top_articles = list(page_reprs['topic{0}'.format(topic_idx)].sort_values()[-20:].index.values)
             if self.id2title:
                 top_articles = [self.id2title.get(pid) for pid in top_articles]
             topic_overview.append({'topic':topic_idx,
@@ -258,12 +248,6 @@ def id_check(lang, args, id2props=None, pageids=None):
     print("Page ID check {0}: missing: {1};  success: {2}".format(lang, len(missing), success))
     print("Non-focal langs+counts: {0}".format(nonfocal_lang))
 
-def get_page_data(lang, output_dir):
-    query = "SELECT page_title FROM page WHERE page_namespace = 0"
-    filename = os.path.join(output_dir, "{0}_pages.csv".format(lang))
-    db = '{0}wiki'.format(lang)
-    exec_mariadb_stat2(query, db, filename)
-
 def get_pageview_data(lang, output_dir):
     query = ("SELECT page_id, sum(view_count) AS weekly_pageviews FROM wmf.pageview_hourly "
              "WHERE project = '{0}.wikipedia' "
@@ -282,17 +266,6 @@ def get_all_pages(df, lang):
         id_to_title.update(ur)
     return id_to_title
 
-
-def load_redirects(lang, redirect_folder):
-    redirects = {}
-    with open(os.path.join(redirect_folder, "{0}_redirect.tsv".format(lang)), "r") as fin:
-        tsvreader = csv.reader(fin, delimiter="\t")
-        for line in tsvreader:
-            if len(line) != 2:
-                print("error parsing line", line)
-                continue
-            redirects[line[0].lower()] = line[1].lower()
-    return redirects
 
 def build_article_text_dump_fn(lang, date, output_dir):
     return os.path.join(output_dir, "[0}wiki-{1}-pages-articles.xml.bz2".format(lang, date))
