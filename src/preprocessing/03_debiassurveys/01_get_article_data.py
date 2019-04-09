@@ -277,7 +277,7 @@ def build_sql_dump_fn(lang, date, output_dir):
 
 def build_local_currentpage_dump_fn(lang, date):
     local_replicas = '/mnt/data/xmldatadumps/public'
-    return os.path.join(local_replicas, '{0}wiki'.format(lang), '{0}wiki-{1}-pages-articles.xml.bz2'.format(lang, date))
+    return os.path.join(local_replicas, '{0}wiki'.format(lang), date, '{0}wiki-{1}-pages-articles.xml.bz2'.format(lang, date))
 
 def download_dumps(lang, date, output_dir, dumptype="sql"):
     """WGET a dump file to local machine"""
