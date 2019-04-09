@@ -129,7 +129,8 @@ def get_pageids(lang, args):
         with open(pageids_fn, 'wb') as fout:
             pickle.dump(pids_to_titles, fout)
     else:
-        pids_to_titles = pickle.load(pageids_fn)
+        with open(pageids_fn, 'rb') as fin:
+            pids_to_titles = pickle.load(fin)
 
     return pids_to_titles
 
