@@ -52,7 +52,8 @@ def main():
     requests.drop_duplicates(inplace=True)
     requests.sort_values(by=['response_type'], ascending=False, inplace=True)
     requests.set_index('pageview_token', inplace=True)
-    print("{0} requests after removing duplicates.".format(len(requests)))
+    print("{0} requests from {1} unique users after removing duplicates.".format(len(requests),
+                                                                                 len(requests['userhash'].unique())))
 
     edit_attempts = pd.read_csv(args.editattempt_fn, sep="\t")
     print("{0} edit actions across {1} users.".format(len(edit_attempts), len(edit_attempts['userhash'].unique())))
