@@ -71,12 +71,14 @@ def add_day_to_hive_trace_table(req_table, db_name, table_name, day, lang, prior
     SELECT
         userhash,
         geocoded_data,
+        MAX(logged_in) as logged_in,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(request)) AS requests,
-        count(*) as r_count
+        COUNT(*) as r_count
     FROM
         (SELECT
             userhash,
             geocoded_data,
+            logged_in,
             cast(normalized_host.project = '{2}' as int) as correct_wiki,
             CONCAT( 'ts|', ts,
                     '|referer|', referer,
@@ -115,8 +117,9 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
     SELECT
         userhash,
         geocoded_data,
+        MAX(logged_in) as logged_in,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(requests)) AS requests,
-        sum(r_count) as request_count,
+        SUM(r_count) as request_count,
         RAND() AS rand_sample
     FROM
         {0}.{1}_{2}_by_day

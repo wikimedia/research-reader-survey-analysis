@@ -55,9 +55,9 @@ def main():
     print("{0} requests from {1} unique users after removing duplicates.".format(len(requests),
                                                                                  len(requests['userhash'].unique())))
 
-    edit_attempts = pd.read_csv(args.editattempt_fn, sep="\t")
-    print("{0} edit actions across {1} users.".format(len(edit_attempts), len(edit_attempts['userhash'].unique())))
-    edit_attempts = edit_attempts.groupby('userhash').apply(group_edit_actions)
+#    edit_attempts = pd.read_csv(args.editattempt_fn, sep="\t")
+#    print("{0} edit actions across {1} users.".format(len(edit_attempts), len(edit_attempts['userhash'].unique())))
+#    edit_attempts = edit_attempts.groupby('userhash').apply(group_edit_actions)
 
     if not os.path.isdir(args.ids_dir):
         print("Creating directory: {0}".format(os.path.abspath(args.ids_dir)))
@@ -84,9 +84,9 @@ def main():
         print(srv_el_req['country'].value_counts(dropna=False))
 
         # merge in edit attempt data
-        srv_el_req = srv_el_req.join(edit_attempts, how="left", on="userhash")
-        print("Responses w/ associated edit data (is anon):")
-        print(srv_el_req['is_anon'].value_counts(dropna=False))
+#        srv_el_req = srv_el_req.join(edit_attempts, how="left", on="userhash")
+#        print("Responses w/ associated edit data (is anon):")
+#        print(srv_el_req['is_anon'].value_counts(dropna=False))
 
         # Write responses+EL+webrequest data to TSV
         output_merged_data = os.path.join(args.responses_dir, "responses_with_el_{0}.csv".format(lang))

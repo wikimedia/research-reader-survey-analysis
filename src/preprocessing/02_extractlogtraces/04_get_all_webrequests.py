@@ -30,6 +30,7 @@ def main():
              "referer_class, "
              "normalized_host, "
              "pageview_info, "
+             "COALESCE(x_analytics_map['loggedIn'], 0) as logged_in, "
              "page_id, "
              "day, "
              "hour "
