@@ -86,15 +86,17 @@ def main():
         pview_fn = os.path.join(args.pageviews_dir, "{0}_pageviews.csv".format(lang))
         if not os.path.exists(pview_fn):
             get_pageview_data(lang, args.pageviews_dir)
-        df_pviews = pd.read_table(pview_fn)
+        df_pviews = pd.read_csv(pview_fn, delimiter="\t")
+        df_pviews = df_pviews[~df_pviews['page_id'].isnull()]
+        df_pviews['page_id'] = df_pviews['page_id'].astype(int)
         # page_id, weekly_pageviews
         df_pviews.set_index('page_id', inplace=True)
 
         # merge page info and page views
         df_pdata_pviews = pd.merge(left=df_pdata, right=df_pviews, left_index=True, right_index=True, how="left")
         print("Length of DF after merging page views:", len(df_pdata_pviews))
-        print("Non-null rows:", len(df_pdata_pviews) - df_pdata_pviews.count())
-        print("Non-null lengths:", len(df_pdata_pviews[df_pdata_pviews["page_length"] == -1]))
+        print("Null rows:", len(df_pdata_pviews) - df_pdata_pviews.count())
+        print("Null lengths:", len(df_pdata_pviews[df_pdata_pviews["page_length"] == -1]))
 
         # Gather LDA features
         df_lda = get_lda_features(args.page_features_dir, lang, args.sql_date)
@@ -251,7 +253,8 @@ def id_check(lang, args, id2props=None, pageids=None):
                 raise TypeError("Page ID that is not int or str: {0}".format(pid))
 
     print("Page ID check {0}: missing: {1};  success: {2}".format(lang, len(missing), success))
-    print("Non-focal langs+counts: {0}".format(nonfocal_lang))
+    print("Non-focal langs+counts: {0}".format(
+        [(lang, nonfocal_lang[lang]) for lang in sorted(nonfocal_lang, key=nonfocal_lang.get, reverse=True)]))
 
 def get_pageview_data(lang, output_dir):
     query = ("SELECT page_id, sum(view_count) AS weekly_pageviews FROM wmf.pageview_hourly "
