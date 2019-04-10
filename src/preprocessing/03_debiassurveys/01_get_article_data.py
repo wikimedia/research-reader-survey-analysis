@@ -229,7 +229,7 @@ class ArticleLDA:
 
 def id_check(lang, args, id2props=None, pageids=None):
     if not pageids:
-        pass
+        pageids = get_pageids(lang, args)
     if not id2props:
         id2props = get_id2properties(lang, args.sql_date, args.output_dir)
 
