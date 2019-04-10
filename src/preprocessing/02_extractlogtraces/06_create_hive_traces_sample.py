@@ -118,7 +118,7 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
     SELECT
         userhash,
         geocoded_data,
-        MAX(logged_in) as logged_in,
+        MAX(logged_in) as has_account,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(requests)) AS requests,
         SUM(r_count) as request_count,
         RAND() AS rand_sample

@@ -54,7 +54,7 @@ def main():
         "page_id",
         "survey_request",
         "survey_dt_utc",
-        "logged_in"]
+        "logged_in", "has_account"]
 
     for lang in args.languages:
         print("**************")
@@ -63,7 +63,7 @@ def main():
         with open(os.path.join(args.in_dir_traces, "sample_{0}.csv".format(lang)), "r") as f:
             l_count = 0
             lines = []
-            assert next(f).strip().split('\t') == ['userhash', 'geocoded_data', 'requests']
+            assert next(f).strip().split('\t') == ['userhash', 'geocoded_data', 'logged_in', 'requests']
             for line in f:
                 l = parse_row(line)
                 if l is not None:

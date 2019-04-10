@@ -115,7 +115,7 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
     SELECT
         userhash,
         geocoded_data,
-        MAX(logged_in) as logged_in,
+        MAX(logged_in) as has_account,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(requests)) AS requests,
         SUM(r_count) as request_count,
         RAND() AS rand_sample
@@ -132,7 +132,7 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
 
 def traces_to_csv(db, table, lang, srv_dir):
     full_tablename = db + "." + table + "_" + lang
-    query = "SELECT userhash, geocoded_data, requests from {0};".format(full_tablename)
+    query = "SELECT userhash, geocoded_data, has_account, requests from {0};".format(full_tablename)
     exec_hive_stat2(query, os.path.join(srv_dir, "sample_{0}.csv".format(lang)))
 
 
