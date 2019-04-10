@@ -120,11 +120,13 @@ def get_pageids(lang, args):
     pageids_fn = os.path.join(args.titles_dir, "titles_{0}.p".format(lang))
     if not os.path.exists(pageids_fn):
         print("Building ID/title dict at {0}".format(pageids_fn))
+        pids_to_titles = {}
         df_survey = pd.read_pickle(os.path.join(args.response_dir, "joined_responses_and_traces_anon_{0}.p".format(lang)))
-        pageids_survey = get_all_pages(df_survey, lang)
+        # add survey page IDs
+        pids_to_titles.update(get_all_pages(df_survey, lang))
         df_sample = pd.read_pickle(os.path.join(args.sample_dir, "sample_df_{0}.p".format(lang)))
-        pageids_sample = get_all_pages(df_sample, lang)
-        pids_to_titles = pageids_sample.update(pageids_survey)
+        # add sample page IDs
+        pids_to_titles.update(get_all_pages(df_sample, lang))
         with open(pageids_fn, 'wb') as fout:
             pickle.dump(pids_to_titles, fout)
     else:
