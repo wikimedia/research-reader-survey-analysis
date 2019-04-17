@@ -94,7 +94,7 @@ def main():
         df_merged['survey_request'] = df_merged.apply(extract_survey_request, lang=lang, axis=1)
         df_merged['wiki'] = df_merged.apply(lambda x: x['survey_request'].get('uri_host', lang), axis=1)
         df_merged['survey_dt_utc'] = df_merged['survey_request'].apply(lambda x: x.get('ts', None))
-        print("Users w/o survey request identified:", df_merged[df_merged['survey_dt_utc'.isnull()]]['userhash'])
+        print("Users w/o survey request identified:", df_merged[df_merged['survey_dt_utc'].isnull()]['userhash'])
         df_merged.dropna(subset=["survey_dt_utc"], inplace=True)
         print("After removing non-existing survey requests: ", len(df_merged))
         df_merged['page_title'] = df_merged['survey_request'].apply(lambda x: x['title'])
