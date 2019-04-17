@@ -122,8 +122,8 @@ def parse_row(line):
 
     d = {'userhash': row[0],
          'geocoded_data': eval(row[1]),
-         'has_account': bool(int(row[3])),
-         'attempted_edit': bool(int(row[4])),
+         'has_account': bool(int(row[2])),
+         'attempted_edit': bool(int(row[3])),
          'requests': parse_requests(row[4])
          }
     if d['requests'] is None:
