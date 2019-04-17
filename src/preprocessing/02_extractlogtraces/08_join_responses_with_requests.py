@@ -61,16 +61,14 @@ def main():
         print("* Processing " + lang)
         print("**************")
         with open(os.path.join(args.in_dir_traces, "sample_{0}.csv".format(lang)), "r") as f:
-            l_count = 0
             lines = []
-            assert next(f).strip().split('\t') == ['userhash', 'geocoded_data', 'logged_in', 'requests']
-            for line in f:
+            assert next(f).strip().split('\t') == ['userhash', 'geocoded_data', 'has_account', 'attempted_edit', 'requests']
+            for l_count, line in enumerate(f, start=1):
                 l = parse_row(line)
                 if l is not None:
                     lines.append(l)
-                if l_count % 10000 == 9999:
-                    print("processing line...", l_count + 1)
-                l_count = l_count + 1
+                if l_count % 10000 == 0:
+                    print("processing line...", l_count)
             print("traces processed: ", l_count)
 
         df_traces = pd.DataFrame(lines)
@@ -80,14 +78,16 @@ def main():
 
         df_responses = pd.read_csv(os.path.join(args.in_dir_responses, "responses_with_el_{0}.csv".format(lang)),
                                    sep="\t")
-        print("responses with duplicates: ", len(df_responses))
+        print("responses with duplicates:", len(df_responses))
+        df_responses = df_responses[~df_responses['userhash'].isnull()]
+        print("responses after removing null userhashes (missing EL):", len(df_responses))
         df_responses.drop_duplicates(subset=["userhash"], inplace=True)
-        print("responses without duplicates (or missing userhash): ", len(df_responses))
+        print("responses after removing remaining duplicates:", len(df_responses))
 
 
         df_merged = pd.merge(df_traces, df_responses, left_on=["userhash"],
                              right_on=["userhash"], how="inner")
-        print("in merged dataframe: ", len(df_merged))
+        print("Users in merged dataframe of survey responses and webrequest traces:", len(df_merged))
 
         df_merged['requests'] = df_merged['requests'].apply(parse_requests_ts_and_redirects,
                                                             d=read_redirects(lang, args.redirect_dir))

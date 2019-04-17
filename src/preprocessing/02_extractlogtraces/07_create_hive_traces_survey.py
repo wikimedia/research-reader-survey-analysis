@@ -49,6 +49,7 @@ def create_hive_trace_table(db_name, table_name, lang, priority, nice):
         userhash STRING,
         geocoded_data MAP<STRING,STRING>,
         logged_in INT,
+        attempted_edit INT,
         requests STRING,
         r_count INT
     )
@@ -73,6 +74,7 @@ def add_day_to_hive_trace_table(req_table, db_name, table_name, day, lang, prior
         userhash,
         geocoded_data,
         MAX(logged_in) as logged_in,
+        MAX(edit_attempt) as attempted_edit,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(request)) AS requests,
         COUNT(*) as r_count
     FROM
@@ -80,10 +82,11 @@ def add_day_to_hive_trace_table(req_table, db_name, table_name, day, lang, prior
             userhash,
             geocoded_data,
             logged_in, 
+            CAST(page_title = '{6}' as int) as edit_attempt,
             CONCAT( 'ts|', ts,
                     '|referer|', referer,
                     '|page_id|', page_id,
-                    '|title|', pageview_info['page_title'],
+                    '|title|', page_title,
                     '|uri_path|', reflect('java.net.URLDecoder', 'decode', uri_path),
                     '|uri_query|', reflect('java.net.URLDecoder', 'decode', uri_query),
                     '|access_method|', access_method,
@@ -116,6 +119,7 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
         userhash,
         geocoded_data,
         MAX(logged_in) as has_account,
+        MAX(attempted_edit) as attempted_edit,
         CONCAT_WS('REQUEST_DELIM', COLLECT_LIST(requests)) AS requests,
         SUM(r_count) as request_count,
         RAND() AS rand_sample
@@ -132,7 +136,7 @@ def ungroup(db_name, table_name, lang, priority, nice, year=config.survey_start_
 
 def traces_to_csv(db, table, lang, srv_dir):
     full_tablename = db + "." + table + "_" + lang
-    query = "SELECT userhash, geocoded_data, has_account, requests from {0};".format(full_tablename)
+    query = "SELECT userhash, geocoded_data, has_account, attempted_edit, requests from {0};".format(full_tablename)
     exec_hive_stat2(query, os.path.join(srv_dir, "sample_{0}.csv".format(lang)))
 
 

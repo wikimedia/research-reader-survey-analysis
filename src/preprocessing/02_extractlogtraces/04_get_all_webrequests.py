@@ -29,16 +29,16 @@ def main():
              "access_method, "
              "referer_class, "
              "normalized_host, "
-             "pageview_info, "
+             "COALESCE(pageview_info['page_title'], '{2}') as page_title, "
              "COALESCE(x_analytics_map['loggedIn'], 0) as logged_in, "
              "page_id, "
              "day, "
              "hour "
              "FROM wmf.webrequest "
-             "WHERE {2} "
+             "WHERE {3} "
              "AND webrequest_source = 'text' AND access_method != 'mobile app' AND agent_type = 'user' "
              "AND normalized_host.project_class = 'wikipedia' "
-             "AND namespace_id = 0 and is_pageview = TRUE;".format(args.all_req_table, args.hash_key, config.hive_days_clause))
+             "AND ((namespace_id = 0 AND is_pageview = TRUE) OR ({4}));".format(args.all_req_table, args.hash_key, config.edit_attempt_str, config.hive_days_clause, config.hive_edit_clause))
 
     exec_hive_stat2(query)
 
