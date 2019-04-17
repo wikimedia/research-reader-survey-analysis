@@ -20,7 +20,7 @@ def main():
 
     query = ("CREATE TABLE {0} STORED AS PARQUET AS "
              "SELECT reflect('org.apache.commons.codec.digest.DigestUtils', 'sha512Hex', concat(client_ip, user_agent, '{1}')) as userhash,"
-             "geocoded_data, "
+             "map('country', geocoded_data['country'], 'timezone', geocoded_data['timezone']) as geocoded_data, "
              "ts, "
              "referer, "
              "uri_path, "
