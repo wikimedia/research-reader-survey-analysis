@@ -94,10 +94,10 @@ def main():
         df_merged['survey_request'] = df_merged.apply(extract_survey_request, lang=lang, axis=1)
         df_merged['wiki'] = df_merged.apply(lambda x: x['survey_request'].get('uri_host', lang), axis=1)
         df_merged['survey_dt_utc'] = df_merged['survey_request'].apply(lambda x: x.get('ts', None))
-        df_merged['page_title'] = df_merged['survey_request'].apply(lambda x: x['title'])
-        df_merged['page_id'] = df_merged['survey_request'].apply(lambda x: x['page_id'])
         df_merged.dropna(subset=["survey_dt_utc"], inplace=True)
         print("After removing non-existing survey requests: ", len(df_merged))
+        df_merged['page_title'] = df_merged['survey_request'].apply(lambda x: x['title'])
+        df_merged['page_id'] = df_merged['survey_request'].apply(lambda x: x['page_id'])
         df_merged = df_merged.reset_index(drop=True)
         unmatched_countries = df_merged[
             df_merged['geocoded_data'].apply(lambda x: x['country']) != df_merged['country']]
