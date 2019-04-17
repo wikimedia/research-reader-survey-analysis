@@ -54,7 +54,7 @@ def main():
         "page_id",
         "survey_request",
         "survey_dt_utc",
-        "logged_in", "has_account"]
+        "has_account", 'attempted_edit']
 
     for lang in args.languages:
         print("**************")
