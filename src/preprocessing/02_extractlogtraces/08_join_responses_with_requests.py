@@ -117,12 +117,14 @@ def main():
 
 def parse_row(line):
     row = line.strip().split('\t')
-    if len(row) != 3:
+    if len(row) != 5:
         return None
 
     d = {'userhash': row[0],
          'geocoded_data': eval(row[1]),
-         'requests': parse_requests(row[2])
+         'has_account': bool(int(row[3])),
+         'attempted_edit': bool(int(row[4])),
+         'requests': parse_requests(row[4])
          }
     if d['requests'] is None:
         return None
