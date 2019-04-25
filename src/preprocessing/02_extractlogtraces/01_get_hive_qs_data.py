@@ -25,7 +25,7 @@ def main():
                     "FROM wmf.webrequest "
                     "WHERE uri_path LIKE '%beacon/event' AND uri_query LIKE '%QuickSurvey%' AND uri_query LIKE '%{1}%' "
                     "AND {2}".format(args.quicksurvey_requests_table, config.survey_name_start, config.hive_days_clause))
-    exec_hive_stat2(get_qs_query)
+    #exec_hive_stat2(get_qs_query)
 
     # NOTE: empirically, the client_ip and user_agent checks have filtered out zero webrequests
     anonymized_to_csv_query = ("SELECT dt as dt_QSinitialization, "
@@ -37,7 +37,12 @@ def main():
                                "get_json_object(json_event, '$.event.pageId') as page_id, "
                                "get_json_object(json_event, '$.event.isLoggedIn') as logged_in, "
                                "geocoded_data['country'] as country, "
-                               "geocoded_data['timezone'] as timezone "
+                               "geocoded_data['country_code'] as country_code, "
+                               "geocoded_data['timezone'] as timezone, "
+                               "geocoded_data['city'] as city, "
+                               "geocoded_data['subdivision'] as subdivision, "
+                               "geocoded_data['latitude'] as lat, "
+                               "geocoded_data['longitude'] as lon "
                                "FROM {1} "
                                "WHERE client_ip <> '-' AND "
                                "user_agent <> '-'".format(hash_key, args.quicksurvey_requests_table))
