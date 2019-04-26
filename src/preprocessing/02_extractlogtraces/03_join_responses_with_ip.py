@@ -213,16 +213,16 @@ def get_geonames_map(allcountries):
     print("{0} countries. {1} places. {2} places w/ population. {3} w/ pop 0. {4} duplicates".format(
         num_countries, num_places, num_pops, nonzero_pops, duplicates))
     # add location-based lookup index for places w/ unknown cities but that still have points
+    locs_to_add = {}
     for cc in lookup:
-        locs_to_add = {}
         for n in lookup[cc]:
             for loc in lookup[cc][n]:
                 simple_loc = (int(loc[0]), int(loc[1]))
                 if simple_loc not in locs_to_add:
                     locs_to_add[simple_loc] = set()
-                locs_to_add[simple_loc].add(n)
-        for l in locs_to_add:
-            lookup[cc][l] = locs_to_add[l]
+                locs_to_add[simple_loc].add((cc, n))
+    for l in locs_to_add:
+        lookup[l] = locs_to_add[l]
     return lookup
 
 def lookup_row(x, geonames, dist_threshold):
@@ -231,7 +231,7 @@ def lookup_row(x, geonames, dist_threshold):
     pt = (float(x['lat']), float(x['lon']))
     # no city info, use lat-lon as backup
     if city.lower() == "unknown":
-        return lookup_pt(pt, country, geonames, dist_threshold)
+        return lookup_pt(pt, geonames, dist_threshold)
     # use city to geocode and then lat-lon to filter
     else:
         try:
@@ -251,21 +251,21 @@ def lookup_row(x, geonames, dist_threshold):
                 return max(within_thres)
             else:
                 # found a matching name but was not close enough
-                backup = lookup_pt(pt, country, geonames, dist_threshold)
+                backup = lookup_pt(pt, geonames, dist_threshold)
                 if backup > 0:
                     return backup
                 else:
                     return -2
         except KeyError:
             # did not find a matching name
-            return lookup_pt(pt, country, geonames, dist_threshold)
+            return lookup_pt(pt, geonames, dist_threshold)
 
-def lookup_pt(pt, country, geonames, dist_threshold):
+def lookup_pt(pt, geonames, dist_threshold):
     simple_pt = (int(pt[0]), int(pt[1]))
     closest_with_pop = float('inf')
     pop = -3
-    for place in geonames[country].get(simple_pt, []):
-        for cpt, cpop in geonames[country][place]:
+    for cc, name in geonames.get(simple_pt, []):
+        for cpt, cpop in geonames[cc][name]:
             if cpop > 0:
                 cand_dist = calc_dist(pt, cpt)
                 if cand_dist < dist_threshold and cand_dist < closest_with_pop:
