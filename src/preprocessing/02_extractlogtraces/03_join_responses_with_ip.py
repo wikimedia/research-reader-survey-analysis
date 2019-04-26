@@ -212,34 +212,63 @@ def get_geonames_map(allcountries):
                                 nonzero_pops += 1
     print("{0} countries. {1} places. {2} places w/ population. {3} w/ pop 0. {4} duplicates".format(
         num_countries, num_places, num_pops, nonzero_pops, duplicates))
+    # add location-based lookup index for places w/ unknown cities but that still have points
+    for cc in lookup:
+        for n in lookup[cc]:
+            for loc in lookup[cc][n]:
+                simple_loc = (int(loc[0], int(loc[1])))
+                if simple_loc not in lookup[cc]:
+                    lookup[cc][simple_loc] = set()
+                lookup[cc][simple_loc].add(n)
     return lookup
 
 def lookup_row(x, geonames, dist_threshold):
     country = x['country_code']
     city = x['city']
     pt = (float(x['lat']), float(x['lon']))
-    try:
-        candidates = geonames[country][city]
-        within_thres = []
-        # find all potential place matches
-        for cpt, cpop in candidates.items():
-            if calc_dist(pt, cpt) < dist_threshold:
-                within_thres.append(cpop)
-        # return potential match with highest population (arbitrary choice but empirically seems to matter little)
-        if within_thres:
-            # Success: found a matching place w/i distance threshold
-            # Possibilities:
-            # >0 == have a real population
-            # 0 if geonames listed that
-            # -1 population if geonames didn't provide a number
-            return max(within_thres)
-        else:
-            # found a matching name but was not close enough
-            return -2
-    except KeyError:
-        # did not find a matching name
-        return -3
+    # no city info, use lat-lon as backup
+    if city.lower() == "unknown":
+        return lookup_pt(pt, country, geonames, dist_threshold)
+    # use city to geocode and then lat-lon to filter
+    else:
+        try:
+            candidates = geonames[country][city]
+            within_thres = []
+            # find all potential place matches
+            for cpt, cpop in candidates.items():
+                if calc_dist(pt, cpt) < dist_threshold:
+                    within_thres.append(cpop)
+            # return potential match with highest population (arbitrary choice but empirically seems to matter little)
+            if within_thres:
+                # Success: found a matching place w/i distance threshold
+                # Possibilities:
+                # >0 == have a real population
+                # 0 if geonames listed that
+                # -1 population if geonames didn't provide a number
+                return max(within_thres)
+            else:
+                # found a matching name but was not close enough
+                backup = lookup_pt(pt, country, geonames, dist_threshold)
+                if backup > 0:
+                    return backup
+                else:
+                    return -2
+        except KeyError:
+            # did not find a matching name
+            return lookup_pt(pt, country, geonames, dist_threshold)
 
+def lookup_pt(pt, country, geonames, dist_threshold):
+    simple_pt = (int(pt[0]), int(pt[1]))
+    closest_with_pop = float('inf')
+    pop = -3
+    for place in geonames[country].get(simple_pt, []):
+        for cpt, cpop in geonames[country][place]:
+            if cpop > 0:
+                cand_dist = calc_dist(pt, cpt)
+                if cand_dist < dist_threshold and cand_dist < closest_with_pop:
+                    closest_with_pop = cand_dist
+                    pop = cpop
+    return pop
 
 if __name__ == "__main__":
     main()
