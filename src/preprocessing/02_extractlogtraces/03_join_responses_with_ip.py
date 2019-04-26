@@ -214,12 +214,15 @@ def get_geonames_map(allcountries):
         num_countries, num_places, num_pops, nonzero_pops, duplicates))
     # add location-based lookup index for places w/ unknown cities but that still have points
     for cc in lookup:
+        locs_to_add = {}
         for n in lookup[cc]:
             for loc in lookup[cc][n]:
                 simple_loc = (int(loc[0]), int(loc[1]))
-                if simple_loc not in lookup[cc]:
-                    lookup[cc][simple_loc] = set()
-                lookup[cc][simple_loc].add(n)
+                if simple_loc not in locs_to_add:
+                    locs_to_add[simple_loc] = set()
+                locs_to_add[simple_loc].add(n)
+        for l in locs_to_add:
+            lookup[cc][l] = locs_to_add[l]
     return lookup
 
 def lookup_row(x, geonames, dist_threshold):
