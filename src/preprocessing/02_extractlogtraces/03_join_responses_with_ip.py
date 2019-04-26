@@ -131,7 +131,14 @@ def map_ip_to_population(df, geonames_tsv, dist_threshold):
     geonames = get_geonames_map(geonames_tsv)
     print("Calculating populations")
     df['population'] = df.apply(lambda x: lookup_row(x, geonames, dist_threshold=dist_threshold), axis=1)
-    print("Success rate:", (df['population'] > 1).sum() / (df['population'] > 1).count())
+    print("Success rate:", (df['population'] >= 1).sum() / df['population'].count())
+    print("Breakdown of matches:", df['population'].apply(lambda x: 1 if x > 0 else x).value_counts(dropna=False))
+    try:
+        ipdump_fn = geonames_tsv.replace('.txt', '_ipmatch.tsv')
+        df[['city', 'country_code', 'lat', 'lon', 'population']].to_csv(ipdump_fn, header=True, index=False, sep='\t')
+        print("Dumped IP->population data to:", ipdump_fn)
+    except Exception:
+        print("Failed to dump IP->population data.")
 
 def calc_dist(pt1, pt2):
     return distance(pt1, pt2).kilometers
@@ -214,14 +221,23 @@ def lookup_row(x, geonames, dist_threshold):
     try:
         candidates = geonames[country][city]
         within_thres = []
+        # find all potential place matches
         for cpt, cpop in candidates.items():
             if calc_dist(pt, cpt) < dist_threshold:
                 within_thres.append(cpop)
+        # return potential match with highest population (arbitrary choice but empirically seems to matter little)
         if within_thres:
+            # Success: found a matching place w/i distance threshold
+            # Possibilities:
+            # >0 == have a real population
+            # 0 if geonames listed that
+            # -1 population if geonames didn't provide a number
             return max(within_thres)
         else:
+            # found a matching name but was not close enough
             return -2
     except KeyError:
+        # did not find a matching name
         return -3
 
 
