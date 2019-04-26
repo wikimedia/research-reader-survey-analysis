@@ -216,7 +216,7 @@ def get_geonames_map(allcountries):
     for cc in lookup:
         for n in lookup[cc]:
             for loc in lookup[cc][n]:
-                simple_loc = (int(loc[0], int(loc[1])))
+                simple_loc = (int(loc[0]), int(loc[1]))
                 if simple_loc not in lookup[cc]:
                     lookup[cc][simple_loc] = set()
                 lookup[cc][simple_loc].add(n)
